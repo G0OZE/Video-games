@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Simulation with Extra Planets, Collisions, and Speed Control</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #controls { position: absolute; top: 10px; left: 10px; color: white; }
+        .slider-container { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <canvas id="solarSystem"></canvas>
+    <div id="controls">
+        <div class="slider-container">
+            <label for="planetSlider">Extra Planets: <span id="planetCount">0</span></label>
+            <input type="range" id="planetSlider" min="0" max="50" value="0">
+        </div>
+        <div class="slider-container">
+            <label for="speedSlider">Simulation Speed: <span id="speedValue">1x</span></label>
+            <input type="range" id="speedSlider" min="0" max="200" value="100">
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('solarSystem');
+        const ctx = canvas.getContext('2d');
+        const planetSlider = document.getElementById('planetSlider');
+        const planetCount = document.getElementById('planetCount');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        const planets = [
+            { name: 'Mercury', color: '#8C7853', radius: 2, distance: 50, speed: 0.02, angle: 0 },
+            { name: 'Venus', color: '#FFA500', radius: 4, distance: 70, speed: 0.015, angle: 0 },
+            { name: 'Earth', color: '#4169E1', radius: 4, distance: 100, speed: 0.01, angle: 0 },
+            { name: 'Mars', color: '#FF4500', radius: 3, distance: 130, speed: 0.008, angle: 0 },
+            { name: 'Jupiter', color: '#FF8C00', radius: 8, distance: 200, speed: 0.004, angle: 0 },
+            { name: 'Saturn', color: '#FFD700', radius: 7, distance: 250, speed: 0.002, angle: 0 },
+            { name: 'Uranus', color: '#00CED1', radius: 6, distance: 300, speed: 0.001, angle: 0 },
+            { name: 'Neptune', color: '#4169E1', radius: 6, distance: 350, speed: 0.0008, angle: 0 }
+        ];
+
+        let explosions = [];
+        let simulationSpeed = 1;
+
+        function drawSun() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+        }
+
+        function drawPlanet(planet) {
+            const x = centerX + Math.cos(planet.angle) * planet.distance;
+            const y = centerY + Math.sin(planet.angle) * planet.distance;
+
+            ctx.beginPath();
+            ctx.arc(x, y, planet.radius, 0, Math.PI * 2);
+            ctx.fillStyle = planet.color;
+            ctx.fill();
+        }
+
+        function movePlanet(planet) {
+            planet.angle += planet.speed * simulationSpeed;
+        }
+
+        function addRandomPlanet() {
+            const randomPlanet = {
+                name: 'Random',
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                radius: Math.random() * 4 + 2,
+                distance: Math.random() * 300 + 400,
+                speed: (Math.random() * 0.01 + 0.001) * (Math.random() < 0.5 ? 1 : -1),
+                angle: Math.random() * Math.PI * 2
+            };
+            planets.push(randomPlanet);
+        }
+
+        function checkCollisions() {
+            for (let i = 0; i < planets.length; i++) {
+                for (let j = i + 1; j < planets.length; j++) {
+                    const dx = (centerX + Math.cos(planets[i].angle) * planets[i].distance) -
+                               (centerX + Math.cos(planets[j].angle) * planets[j].distance);
+                    const dy = (centerY + Math.sin(planets[i].angle) * planets[i].distance) -
+                               (centerY + Math.sin(planets[j].angle) * planets[j].distance);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < planets[i].radius + planets[j].radius) {
+                        explode(planets[i]);
+                        explode(planets[j]);
+                        planets.splice(j, 1);
+                        planets.splice(i, 1);
+                        i--;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function explode(planet) {
+            const x = centerX + Math.cos(planet.angle) * planet.distance;
+            const y = centerY + Math.sin(planet.angle) * planet.distance;
+            explosions.push({ x, y, radius: 0, maxRadius: planet.radius * 3, age: 0 });
+        }
+
+        function drawExplosions() {
+            explosions.forEach((explosion, index) => {
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 0, ${1 - explosion.age / 60})`;
+                ctx.fill();
+
+                explosion.radius += (explosion.maxRadius - explosion.radius) * 0.1;
+                explosion.age++;
+
+                if (explosion.age > 60) {
+                    explosions.splice(index, 1);
+                }
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawSun();
+
+            planets.forEach(planet => {
+                drawPlanet(planet);
+                movePlanet(planet);
+            });
+
+            checkCollisions();
+            drawExplosions();
+
+            requestAnimationFrame(animate);
+        }
+
+        planetSlider.addEventListener('input', () => {
+            const targetCount = parseInt(planetSlider.value);
+            const currentExtraPlanets = planets.length - 8;
+
+            if (targetCount > currentExtraPlanets) {
+                for (let i = 0; i < targetCount - currentExtraPlanets; i++) {
+                    addRandomPlanet();
+                }
+            } else if (targetCount < currentExtraPlanets) {
+                planets.splice(8, currentExtraPlanets - targetCount);
+            }
+
+            planetCount.textContent = targetCount;
+        });
+
+        speedSlider.addEventListener('input', () => {
+            simulationSpeed = speedSlider.value / 100;
+            speedValue.textContent = simulationSpeed.toFixed(2) + 'x';
+        });
+
+        animate();
+    </script>
+</body>
+</html>
