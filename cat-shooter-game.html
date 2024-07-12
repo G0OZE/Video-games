@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Shooter Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid black;
+            cursor: none;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        #restartButton {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <button id="restartButton" style="display: none;">Restart Game</button>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const restartButton = document.getElementById('restartButton');
+
+        let score = 0;
+        let gameOver = false;
+        let backgroundX = 0;
+
+        const player = {
+            x: 100,
+            y: 200,
+            width: 60,
+            height: 60
+        };
+
+        let bullets = [];
+        let cats = [];
+
+        // Dog sprite (facing right)
+        const dogSprite = new Image();
+        dogSprite.src = 'data:image/svg+xml,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+                <rect x="10" y="15" width="40" height="30" fill="#8B4513"/>
+                <rect x="25" y="10" width="30" height="30" fill="#8B4513"/>
+                <rect x="45" y="5" width="10" height="20" fill="#8B4513"/>
+                <rect x="25" y="5" width="10" height="20" fill="#8B4513"/>
+                <rect x="45" y="20" width="5" height="5" fill="black"/>
+                <rect x="30" y="20" width="5" height="5" fill="black"/>
+                <rect x="35" y="30" width="10" height="5" fill="black"/>
+            </svg>
+        `);
+
+        // Cat sprite
+        const catSprite = new Image();
+        catSprite.src = 'data:image/svg+xml,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+                <path d="M10 30 Q30 20 50 30 Q40 50 10 30" fill="#FFA500"/>
+                <path d="M20 20 Q10 10 0 20 Q10 30 20 30 Q30 30 40 20 Q30 10 20 20" fill="#FFA500"/>
+                <path d="M5 15 Q10 5 15 15 Z" fill="#FFA500"/>
+                <path d="M35 15 Q30 5 25 15 Z" fill="#FFA500"/>
+                <ellipse cx="10" cy="22" rx="5" ry="3" fill="#00FF00"/>
+                <ellipse cx="30" cy="22" rx="5" ry="3" fill="#00FF00"/>
+                <ellipse cx="20" cy="27" rx="3" ry="2" fill="#FFB6C1"/>
+            </svg>
+        `);
+
+        function drawPlayer() {
+            ctx.drawImage(dogSprite, player.x, player.y, player.width, player.height);
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'red';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, 5, 5);
+            });
+        }
+
+        function drawCats() {
+            cats.forEach(cat => {
+                ctx.drawImage(catSprite, cat.x, cat.y, cat.width, cat.height);
+            });
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#87CEEB';  // Sky blue
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#228B22';  // Forest green
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            
+            // Draw some trees
+            for (let i = 0; i < 5; i++) {
+                ctx.fillStyle = '#8B4513';  // Brown
+                ctx.fillRect((i * 200 + backgroundX) % 1000 - 200, canvas.height - 100, 20, 50);
+                ctx.fillStyle = '#228B22';  // Green
+                ctx.beginPath();
+                ctx.moveTo((i * 200 + backgroundX) % 1000 - 220, canvas.height - 100);
+                ctx.lineTo((i * 200 + backgroundX) % 1000 - 180, canvas.height - 100);
+                ctx.lineTo((i * 200 + backgroundX) % 1000 - 200, canvas.height - 150);
+                ctx.fill();
+            }
+        }
+
+        function moveBullets() {
+            bullets.forEach(bullet => {
+                bullet.x += 10;
+            });
+            bullets = bullets.filter(bullet => bullet.x < canvas.width);
+        }
+
+        function moveCats() {
+            cats.forEach(cat => {
+                cat.x -= 3;
+            });
+            cats = cats.filter(cat => cat.x + cat.width > 0);
+        }
+
+        function moveBackground() {
+            backgroundX -= 1;
+            if (backgroundX <= -200) {
+                backgroundX = 0;
+            }
+        }
+
+        function spawnCat() {
+            if (Math.random() < 0.02) {
+                cats.push({
+                    x: canvas.width,
+                    y: Math.random() * (canvas.height - 110) + 10,
+                    width: 60,
+                    height: 60
+                });
+            }
+        }
+
+        function checkCollisions() {
+            cats.forEach((cat, catIndex) => {
+                bullets.forEach((bullet, bulletIndex) => {
+                    if (bullet.x < cat.x + cat.width &&
+                        bullet.x + 5 > cat.x &&
+                        bullet.y < cat.y + cat.height &&
+                        bullet.y + 5 > cat.y) {
+                        cats.splice(catIndex, 1);
+                        bullets.splice(bulletIndex, 1);
+                        score++;
+                        updateScore();
+                    }
+                });
+
+                if (player.x < cat.x + cat.width &&
+                    player.x + player.width > cat.x &&
+                    player.y < cat.y + cat.height &&
+                    player.y + player.height > cat.y) {
+                    gameOver = true;
+                    restartButton.style.display = 'block';
+                }
+            });
+        }
+
+        function updateScore() {
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        function gameLoop() {
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '30px Arial';
+                ctx.fillText('Game Over!', canvas.width / 2 - 70, canvas.height / 2);
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackground();
+            drawPlayer();
+            drawBullets();
+            drawCats();
+            
+            moveBullets();
+            moveCats();
+            moveBackground();
+            spawnCat();
+            checkCollisions();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartGame() {
+            score = 0;
+            updateScore();
+            gameOver = false;
+            bullets = [];
+            cats = [];
+            player.y = 200;
+            restartButton.style.display = 'none';
+            gameLoop();
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.y = e.clientY - rect.top - player.height / 2;
+            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!gameOver) {
+                bullets.push({
+                    x: player.x + player.width,
+                    y: player.y + player.height / 2
+                });
+            }
+        });
+
+        restartButton.addEventListener('click', restartGame);
+
+        gameLoop();
+    </script>
+</body>
+</html>

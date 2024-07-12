@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abhinav's Tree and Dog Jump</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            background-color: #87CEEB;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 24px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="gameOver">
+        Game Over!<br>
+        Press Space to Restart
+    </div>
+    <audio id="backgroundMusic" loop>
+        <source src="8-bit-game-158815.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameOverScreen = document.getElementById('gameOver');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const abhinav = {
+            x: canvas.width / 4,
+            y: canvas.height - 100,
+            width: 48,
+            height: 48,
+            jumping: false,
+            jumpHeight: 150,
+            jumpSpeed: 5,
+            originalY: canvas.height - 100
+        };
+
+        let score = 0;
+        let gameActive = true;
+        let gameSpeed = 5;
+        let debugMode = false;
+        let botActive = false;
+
+        class Obstacle {
+            constructor(x, type) {
+                this.x = x;
+                this.y = canvas.height - 120;
+                this.type = type;
+                if (type === 'tree') {
+                    this.width = 60;
+                    this.height = 100;
+                } else if (type === 'dog') {
+                    this.width = 60;
+                    this.height = 40;
+                    this.y = canvas.height - 60;
+                }
+            }
+
+            draw() {
+                if (this.type === 'tree') {
+                    // Trunk
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(this.x + 24, this.y + 40, 12, 60);
+
+                    // Leaves
+                    ctx.fillStyle = '#228B22';
+                    ctx.fillRect(this.x, this.y + 40, 60, 36);
+                    ctx.fillRect(this.x + 12, this.y + 16, 36, 24);
+                    ctx.fillRect(this.x + 24, this.y, 12, 16);
+                } else if (this.type === 'dog') {
+                    // Body
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(this.x, this.y, 50, 30);
+                    
+                    // Head
+                    ctx.fillRect(this.x + 40, this.y - 10, 20, 20);
+                    
+                    // Legs
+                    ctx.fillRect(this.x + 5, this.y + 30, 10, 10);
+                    ctx.fillRect(this.x + 35, this.y + 30, 10, 10);
+                    
+                    // Tail
+                    ctx.fillRect(this.x - 10, this.y + 5, 15, 5);
+                    
+                    // Eye
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(this.x + 52, this.y - 5, 4, 4);
+                }
+
+                if (debugMode) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(this.x, this.y, this.width, this.height);
+                }
+            }
+
+            update() {
+                this.x -= gameSpeed;
+                if (this.x + this.width < 0) {
+                    this.x = canvas.width + getRandomSpacing();
+                    score++;
+                    gameSpeed += 0.1;
+                    // Randomly change the type of obstacle
+                    this.type = Math.random() < 0.5 ? 'tree' : 'dog';
+                    if (this.type === 'tree') {
+                        this.width = 60;
+                        this.height = 100;
+                        this.y = canvas.height - 120;
+                    } else {
+                        this.width = 60;
+                        this.height = 40;
+                        this.y = canvas.height - 60;
+                    }
+                }
+            }
+        }
+
+        function getRandomSpacing() {
+            return Math.random() * (canvas.width / 2) + (canvas.width / 2);
+        }
+
+        const obstacles = [
+            new Obstacle(canvas.width, 'tree'),
+            new Obstacle(canvas.width + getRandomSpacing(), 'dog')
+        ];
+
+        function drawAbhinav() {
+            // Body
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(abhinav.x, abhinav.y, abhinav.width, abhinav.height);
+
+            // Face
+            ctx.fillStyle = '#D2691E';
+            ctx.fillRect(abhinav.x + 6, abhinav.y + 6, 36, 36);
+
+            // Eyes
+            ctx.fillStyle = 'black';
+            ctx.fillRect(abhinav.x + 12, abhinav.y + 18, 6, 6);
+            ctx.fillRect(abhinav.x + 30, abhinav.y + 18, 6, 6);
+
+            // Nose
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(abhinav.x + 20, abhinav.y + 30, 8, 6);
+
+            // Mouth
+            ctx.fillRect(abhinav.x + 16, abhinav.y + 38, 16, 4);
+
+            // Ears
+            ctx.fillRect(abhinav.x - 6, abhinav.y, 12, 12);
+            ctx.fillRect(abhinav.x + 42, abhinav.y, 12, 12);
+
+            if (debugMode) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(abhinav.x, abhinav.y, abhinav.width, abhinav.height);
+            }
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+        }
+
+        function drawScore() {
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            if (debugMode) {
+                ctx.fillText('Debug Mode: ON', 10, 60);
+            }
+        }
+
+        function drawDebugInfo() {
+            ctx.fillStyle = 'black';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText('Press D to toggle Debug', canvas.width - 10, 30);
+            ctx.fillText('Press L to toggle Bot', canvas.width - 10, 60);
+            ctx.textAlign = 'left';  // Reset text alignment
+        }
+
+        function jump() {
+            if (!abhinav.jumping) {
+                abhinav.jumping = true;
+                let jumpHeight = 0;
+                const jumpInterval = setInterval(() => {
+                    if (jumpHeight < abhinav.jumpHeight) {
+                        abhinav.y -= abhinav.jumpSpeed;
+                        jumpHeight += abhinav.jumpSpeed;
+                    } else {
+                        clearInterval(jumpInterval);
+                        fall();
+                    }
+                }, 20);
+            }
+        }
+
+        function fall() {
+            const fallInterval = setInterval(() => {
+                if (abhinav.y < abhinav.originalY) {
+                    abhinav.y += abhinav.jumpSpeed;
+                } else {
+                    abhinav.y = abhinav.originalY;
+                    abhinav.jumping = false;
+                    clearInterval(fallInterval);
+                }
+            }, 20);
+        }
+
+        function checkCollision() {
+            obstacles.forEach(obstacle => {
+                if (
+                    abhinav.x < obstacle.x + obstacle.width &&
+                    abhinav.x + abhinav.width > obstacle.x &&
+                    abhinav.y < obstacle.y + obstacle.height &&
+                    abhinav.y + abhinav.height > obstacle.y
+                ) {
+                    gameActive = false;
+                    gameOverScreen.style.display = 'block';
+                    backgroundMusic.pause();
+                    if (botActive) {
+                        clearInterval(botInterval);
+                    }
+                }
+            });
+        }
+
+        function botPlay() {
+            obstacles.forEach(obstacle => {
+                if (
+                    obstacle.x < abhinav.x + 200 && 
+                    obstacle.x > abhinav.x &&
+                    abhinav.y === abhinav.originalY
+                ) {
+                    jump();
+                }
+            });
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawGround();
+            obstacles.forEach(obstacle => {
+                obstacle.update();
+                obstacle.draw();
+            });
+            drawAbhinav();
+            drawScore();
+            drawDebugInfo();
+            checkCollision();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartGame() {
+            score = 0;
+            gameSpeed = 5;
+            abhinav.y = abhinav.originalY;
+            abhinav.jumping = false;
+            obstacles.forEach((obstacle, index) => {
+                obstacle.x = canvas.width + index * getRandomSpacing();
+                obstacle.type = index % 2 === 0 ? 'tree' : 'dog';
+            });
+            gameActive = true;
+            gameOverScreen.style.display = 'none';
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play();
+            if (botActive) {
+                botInterval = setInterval(botPlay, 20);
+            }
+            gameLoop();
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                if (gameActive) {
+                    jump();
+                } else {
+                    restartGame();
+                }
+            } else if (event.code === 'KeyD') {
+                debugMode = !debugMode;
+            } else if (event.code === 'KeyL') {
+                botActive = !botActive;
+                if (botActive) {
+                    botInterval = setInterval(botPlay, 20);
+                } else {
+                    clearInterval(botInterval);
+                }
+            }
+        });
+
+        let botInterval;
+        backgroundMusic.play();
+        gameLoop();
+    </script>
+</body>
+</html>
